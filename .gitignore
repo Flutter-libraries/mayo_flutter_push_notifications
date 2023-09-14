@@ -36,3 +36,8 @@ example/ios/firebase_app_id_file.json
 example/ios/Runner.xcodeproj/project.pbxproj
 
 example/firebase_options.dart
+.flutter-plugins
+
+.flutter-plugins-dependencies
+
+.metadata
