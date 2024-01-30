@@ -1,39 +1,69 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
-
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+# Mayo Flutter Push Notifications
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+Receive push notifications using Firebase messaging
+
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+- Configure a firebase project manually or using the firebase client
+
+```bash
+flutterfire configure
+```
+
+- Configure android a iOS propertly
+
+### iOS
+
+```
+Firebase Messaging plugin will not work if you disable method swizzling. Please remove or set to true the FirebaseAppDelegateProxyEnabled in your Info.plist file if it exists.
+```
+
+- [FCM via APNs Integration](https://firebase.flutter.dev/docs/messaging/apple-integration/)
+
+
+- [Allow images on notifications](https://firebase.flutter.dev/docs/messaging/apple-integration/#advanced-optional-allowing-notification-images)
+
+```
+Your device can now display images in a notification by specifying the `imageUrl` option in your FCM payload. Keep in mind that a 300KB max image size is enforced by the device.
+```
+
 
 ## Usage
+- Start receiving notifications just calling `initNotifications` method inside `PushNotificationsRepository`
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+This method triggers the allow notifications permissions dialog
 
 ```dart
-const like = 'sample';
+import 'package:mayo_flutter_push_notifications/mayo_flutter_push_notifications.dart';
+
+final pushNotificationsRepository = PushNotificationRepository();
+
+await pushNotificationsRepository.initNotifications();
 ```
+
+*You can provide the PushNotificationsRepository across the app using flutter_bloc or provider packages*
+
+- Call to `getToken` method to obtain a valid FCM token where send notifications to user
+
+```dart
+final token = await pushNotificationsRepository.getToken()
+```
+
+- Subscribe/Unsusbscribe to topic
+
+- TODO: Configure several channels
+
 
 ## Additional information
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+### Flows
+
+- onMessageOpenedApp
+Triggers when the app is opened
+
+
+- getInitialMessage
+

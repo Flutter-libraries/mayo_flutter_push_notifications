@@ -1,197 +1,192 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+class PushMessage {
+  PushMessage({required this.page, required this.id});
+
+  final String page;
+  final String id;
+}
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Handling a background message ${message.messageId}');
 }
 
 Future<void> _firebaseMessagingBackgroundHandler2(
-    NotificationResponse message) async {
+  NotificationResponse message,
+) async {
   print('Handling a background message ${message.id}');
 }
 
 const pushChannels = {
   'notifications': AndroidNotificationChannel(
-      'notifications', // id
-      'Android channel for notifications', // title
-      description: 'This channel is used for notifications.', // description
-      importance: Importance.max,
-      playSound: true,
-      // sound: RawResourceAndroidNotificationSound('debug'),
-      enableLights: true,
-      enableVibration: true,
-      showBadge: true),
-  // 'debug': AndroidNotificationChannel(
-  //     'debug', // id
-  //     'Debug alerts from Ramos server', // title
-  //     description: 'This channel is used for debug.', // description
-  //     importance: Importance.max,
-  //     playSound: true,
-  //     sound: RawResourceAndroidNotificationSound('debug'),
-  //     enableLights: true,
-  //     enableVibration: true,
-  //     showBadge: true),
-  // 'warnings': AndroidNotificationChannel(
-  //     'warnings', // id
-  //     'Warning alerts from Ramos server', // title
-  //     description: 'This channel is used for warnings.', // description
-  //     importance: Importance.max,
-  //     playSound: true,
-  //     sound: RawResourceAndroidNotificationSound('warnings'),
-  //     enableLights: true,
-  //     enableVibration: true,
-  //     showBadge: true),
-  // 'errors': AndroidNotificationChannel(
-  //     'errors', // id
-  //     'Errors alerts from Ramos server', // title
-  //     description: 'This channel is used for errors.', // description
-  //     importance: Importance.max,
-  //     playSound: true,
-  //     sound: RawResourceAndroidNotificationSound('errors'),
-  //     enableLights: true,
-  //     enableVibration: true,
-  //     showBadge: true)
+    'notifications', // id
+    'Android channel for notifications', // title
+    description: 'This channel is used for notifications.', // description
+    importance: Importance.max,
+    enableLights: true,
+    playSound: true,
+    showBadge: true,
+    enableVibration: true,
+  ),
 };
 
 class PushNotificationRepository {
-  final FirebaseMessaging _firebaseMessaging;
-
   PushNotificationRepository({FirebaseMessaging? firebaseMessaging})
       : _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance;
 
+  final FirebaseMessaging _firebaseMessaging;
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
   Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
+    return _firebaseMessaging.getToken();
   }
 
-  initNotifications() async {
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    // One for each channel
+  Future<void> initNotifications() async {
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(pushChannels['notifications']!);
 
-    // await flutterLocalNotificationsPlugin
-    //     .resolvePlatformSpecificImplementation<
-    //         AndroidFlutterLocalNotificationsPlugin>()
-    //     ?.createNotificationChannel(pushChannels['warnings']!);
-    // await flutterLocalNotificationsPlugin
-    //     .resolvePlatformSpecificImplementation<
-    //         AndroidFlutterLocalNotificationsPlugin>()
-    //     ?.createNotificationChannel(pushChannels['errors']!);
-
     const initializationSettingsAndroid =
         AndroidInitializationSettings('ic_stat_app_icon');
 
-    const initializationSettingsIOS = DarwinInitializationSettings();
+    final initializationSettingsIOS = DarwinInitializationSettings(
+      onDidReceiveLocalNotification: (id, title, body, payload) {
+        print('onDidReceiveLocalNotification');
+        print(id);
+        print(title);
+        print(body);
+        print(payload);
+      },
+    );
 
     final initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings,
-        onDidReceiveBackgroundNotificationResponse:
-            _firebaseMessagingBackgroundHandler2,
-        onDidReceiveNotificationResponse: onSelectLocalNotification);
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveBackgroundNotificationResponse:
+          _firebaseMessagingBackgroundHandler2,
+      onDidReceiveNotificationResponse: (message) =>
+          onSelectLocalNotification(message).then((value) async* {
+        // yield PushNotificationData('onDidReceiveNotificationResponse',
+        //     {'chatId': 'uknqZKrwHpnYReoSnoJR'});
+      }),
+    );
 
     /// Update the iOS foreground notification presentation options to allow
     /// heads up notifications.
-    await _firebaseMessaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    await _firebaseMessaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: true,
-      provisional: false,
-      sound: true,
-    );
+    await _firebaseMessaging.setForegroundNotificationPresentationOptions();
 
     // Set the background messaging handler early on, as a named top-level function
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+    // Triggers when a message is received
     FirebaseMessaging.onMessage.listen((message) {
-      print('onMessage: $message}');
-      print(message.messageId);
-
-      final notification = message.notification;
-      final android = message.notification?.android;
-      final apple = message.notification?.apple;
-
-      if (notification != null && android != null) {}
-
-      // Get the channel id for the notification
-      final channel =
-          pushChannels[android?.channelId] ?? pushChannels['notifications'];
-
-      print('notification: $notification');
-      print('android: $android');
-      print('data: ${message.data}');
-
-      if (notification != null && android != null) {
-        print('local notification');
-        flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-              android: AndroidNotificationDetails(channel!.id, channel.name,
-                  channelDescription: channel.description,
-                  importance: Importance.max,
-                  priority: Priority.high,
-                  color: Colors.red,
-                  playSound: true,
-                  enableLights: true,
-                  colorized: true,
-                  // sound: RawResourceAndroidNotificationSound(
-                  //     message.data['sound'] ?? 'debug'),
-                  ticker: 'ticker'),
-            ),
-            payload: jsonEncode(message.data));
-      } else if (notification != null && apple != null) {
-        print('local notification');
-        flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-              iOS: DarwinNotificationDetails(
-                presentAlert: true,
-                presentBadge: true,
-                presentSound: true,
-              ),
-            ),
-            payload: jsonEncode(message.data));
-      } else {
-        print('no local notification');
-      }
+      print('onMessage');
+      final pushMessage = _processMessage(message);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _processMessage(message);
-    });
-
+    // Get any messages which caused the application to open from
+    // a terminated state.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
-      print('Handling a initial message ${initialMessage.messageId}');
+      log(
+        'Handling a initial message ${initialMessage.messageId}',
+        name: 'PushNotificationRepository',
+      );
 
-      _processMessage(initialMessage);
+      print('initialMessage');
+      // yield _processMessage(initialMessage);
+    }
+
+    // Also handle any interaction when the app is in the background via a
+    // Stream listener
+    FirebaseMessaging.onMessageOpenedApp.map((message) {
+      log(
+        'Handling a message opened app ${message.messageId}',
+        name: 'PushNotificationRepository',
+      );
+
+      print('onMessageOpenedApp');
+      return _processMessage(message);
+    });
+  }
+
+  // Display local notification
+  void _displayLocalNotification(RemoteMessage message) {
+    final notification = message.notification;
+    final android = message.notification?.android;
+    final apple = message.notification?.apple;
+
+    // Get the channel id for the notification
+    print('Android channel id: ${android?.channelId}');
+
+    final channel =
+        pushChannels[android?.channelId] ?? pushChannels['notifications'];
+
+    print('notification: $notification');
+    print('android: $android');
+    print('android: $apple');
+    print('data: ${message.data}');
+
+    if (notification != null && android != null) {
+      print('android local notification');
+      flutterLocalNotificationsPlugin.show(
+        DateTime.now().microsecond,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel!.id, channel.name,
+            channelDescription: channel.description,
+            importance: Importance.max,
+            priority: Priority.high,
+
+            enableLights: true,
+            colorized: true,
+            // sound: RawResourceAndroidNotificationSound(
+            //     message.data['sound'] ?? 'debug'),
+            ticker: 'ticker',
+          ),
+        ),
+        payload: jsonEncode(message.data),
+      );
+    } else if (notification != null && apple != null) {
+      print('apple local notification');
+      try {
+        flutterLocalNotificationsPlugin.show(
+          DateTime.now().microsecond,
+          notification.title,
+          notification.body,
+          const NotificationDetails(
+            iOS: DarwinNotificationDetails(
+              presentAlert: true,
+              presentBadge: true,
+              presentSound: true,
+            ),
+          ),
+          payload: jsonEncode(message.data),
+        );
+      } catch (e) {
+        print(e);
+      }
+    } else {
+      print('no local notification');
     }
   }
 
+  /// On tap notification
   Future<void> onSelectLocalNotification(NotificationResponse? payload) async {
-    print('onSelectLocalNotification');
+    log('onDidReceiveNotificationResponse', name: 'PushNotificationRepository');
     print(payload);
 
     final data = jsonDecode(payload!.payload!);
@@ -203,23 +198,26 @@ class PushNotificationRepository {
     // }
   }
 
-  void _processMessage(RemoteMessage message) {
+  PushMessage _processMessage(RemoteMessage message) {
     print('processMessage');
-    // final data = Map<String, String>.from(message.data);
 
-    // final type = data['notification_type'];
-    // final alertId = data['alertId'];
+    final data = Map<String, String>.from(message.data);
 
-    // if (type == 'alert' && _ctx != null) {
-    //   _navigateToAlertScreen(alertId);
-    // }
+    return PushMessage(
+      page: data['page']!,
+      id: data['chatId'] != null
+          ? data['chatId']!
+          : data['orderId'] != null
+              ? data['orderId']!
+              : '',
+    );
   }
 
-  subscribeToTopic(String topic) async {
+  Future<void> subscribeToTopic(String topic) async {
     await FirebaseMessaging.instance.subscribeToTopic(topic);
   }
 
-  unsubscribeFromTopic(String topic) async {
+  Future<void> unsubscribeFromTopic(String topic) async {
     await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
   }
 }
