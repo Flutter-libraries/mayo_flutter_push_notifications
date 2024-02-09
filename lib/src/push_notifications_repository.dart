@@ -23,9 +23,9 @@ Future<void> _firebaseMessagingBackgroundHandler2(
 
 const pushChannels = {
   'notifications': AndroidNotificationChannel(
-    'notifications', // id
-    'Android channel for notifications', // title
-    description: 'This channel is used for notifications.', // description
+    'notifications',
+    'Android channel for notifications',
+    description: 'This channel is used for notifications.',
     importance: Importance.max,
     enableLights: true,
     playSound: true,
@@ -43,57 +43,62 @@ class PushNotificationRepository {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  final initializationSettings = InitializationSettings(
+    android: AndroidInitializationSettings('ic_stat_app_icon'),
+    iOS: DarwinInitializationSettings(),
+  );
+
+  static NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'notifications',
+      'Android channel for notifications',
+      priority: Priority.max,
+      importance: Importance.max,
+    ),
+  );
   Future<String?> getToken() async {
     return _firebaseMessaging.getToken();
   }
 
-  Future<void> initNotifications() async {
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(pushChannels['notifications']!);
-
-    const initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_stat_app_icon');
-
-    final initializationSettingsIOS = DarwinInitializationSettings(
-      onDidReceiveLocalNotification: (id, title, body, payload) {
-        print('onDidReceiveLocalNotification');
-        print(id);
-        print(title);
-        print(body);
-        print(payload);
-      },
-    );
-
-    final initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+  Stream<NotificationResponse> initNotifications() async* {
+    // await flutterLocalNotificationsPlugin
+    //     .resolvePlatformSpecificImplementation<
+    //         AndroidFlutterLocalNotificationsPlugin>()
+    //     ?.createNotificationChannel(pushChannels['notifications']!);
 
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveBackgroundNotificationResponse:
-          _firebaseMessagingBackgroundHandler2,
-      onDidReceiveNotificationResponse: (message) =>
-          onSelectLocalNotification(message).then((value) async* {
-        // yield PushNotificationData('onDidReceiveNotificationResponse',
-        //     {'chatId': 'uknqZKrwHpnYReoSnoJR'});
-      }),
+      onDidReceiveBackgroundNotificationResponse: (resp) async* {
+        print('onDidReceiveBackgroundNotificationResponse');
+        print(resp);
+
+        yield resp;
+      },
+      // onDidReceiveNotificationResponse: (message) =>
+      //     onSelectLocalNotification(message).then((value) async* {
+      //   // yield PushNotificationData('onDidReceiveNotificationResponse',
+      //   //     {'chatId': 'uknqZKrwHpnYReoSnoJR'});
+      // }),
     );
 
     /// Update the iOS foreground notification presentation options to allow
     /// heads up notifications.
-    await _firebaseMessaging.setForegroundNotificationPresentationOptions();
-
-    // Set the background messaging handler early on, as a named top-level function
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await _firebaseMessaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     // Triggers when a message is received
     FirebaseMessaging.onMessage.listen((message) {
       print('onMessage');
-      final pushMessage = _processMessage(message);
+      if (message.notification != null) {
+        _displayLocalNotification(message);
+      }
     });
+
+    // Set the background messaging handler early on, as a named top-level function
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // Get any messages which caused the application to open from
     // a terminated state.
