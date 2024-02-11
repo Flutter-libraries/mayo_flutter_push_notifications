@@ -1,24 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-class PushMessage {
-  PushMessage({required this.page, required this.id});
-
-  final String page;
-  final String id;
-}
+import 'package:mayo_flutter_push_notifications/src/models.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Handling a background message ${message.messageId}');
-}
-
-Future<void> _firebaseMessagingBackgroundHandler2(
-  NotificationResponse message,
-) async {
-  print('Handling a background message ${message.id}');
 }
 
 const pushChannels = {
@@ -48,38 +37,47 @@ class PushNotificationRepository {
     iOS: DarwinInitializationSettings(),
   );
 
-  static NotificationDetails platformChannelSpecifics = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'notifications',
-      'Android channel for notifications',
-      priority: Priority.max,
-      importance: Importance.max,
-    ),
-  );
+  final messagesLocalHistory = <FCMMessageReceived>[];
+
   Future<String?> getToken() async {
     return _firebaseMessaging.getToken();
   }
 
-  Stream<NotificationResponse> initNotifications() async* {
-    // await flutterLocalNotificationsPlugin
-    //     .resolvePlatformSpecificImplementation<
-    //         AndroidFlutterLocalNotificationsPlugin>()
-    //     ?.createNotificationChannel(pushChannels['notifications']!);
-
+  Stream<FCMEvent> initNotifications() async* {
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
+      onDidReceiveNotificationResponse: (resp) async* {
+        print('onDidReceiveNotificationResponse');
+        print(resp);
+
+        if (resp.payload != null) {
+          yield FCMEvent(
+            event: FCMMessageEvent.tapped,
+            message: _processPayload(resp),
+          );
+
+          messagesLocalHistory.add(_processPayload(resp));
+        }
+      },
       onDidReceiveBackgroundNotificationResponse: (resp) async* {
         print('onDidReceiveBackgroundNotificationResponse');
         print(resp);
 
-        yield resp;
+        if (resp.payload != null) {
+          yield FCMEvent(
+            event: FCMMessageEvent.tapped,
+            message: _processPayload(resp),
+          );
+
+          messagesLocalHistory.add(_processPayload(resp));
+        }
       },
-      // onDidReceiveNotificationResponse: (message) =>
-      //     onSelectLocalNotification(message).then((value) async* {
-      //   // yield PushNotificationData('onDidReceiveNotificationResponse',
-      //   //     {'chatId': 'uknqZKrwHpnYReoSnoJR'});
-      // }),
     );
+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(pushChannels['notifications']!);
 
     /// Update the iOS foreground notification presentation options to allow
     /// heads up notifications.
@@ -94,36 +92,39 @@ class PushNotificationRepository {
       print('onMessage');
       if (message.notification != null) {
         _displayLocalNotification(message);
+        messagesLocalHistory.add(_processMessage(message));
       }
     });
 
     // Set the background messaging handler early on, as a named top-level function
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+    // Also handle any interaction when the app is in the background via a
+    FirebaseMessaging.onMessageOpenedApp.map((message) async* {
+      print('onMessageOpenedApp');
+
+      yield FCMEvent(
+          event: FCMMessageEvent.oppenedApp, message: _processMessage(message));
+
+      messagesLocalHistory.add(_processMessage(message));
+    });
+
     // Get any messages which caused the application to open from
     // a terminated state.
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
+      print('initialMessage');
+
       log(
         'Handling a initial message ${initialMessage.messageId}',
         name: 'PushNotificationRepository',
       );
 
-      print('initialMessage');
-      // yield _processMessage(initialMessage);
-    }
-
-    // Also handle any interaction when the app is in the background via a
-    // Stream listener
-    FirebaseMessaging.onMessageOpenedApp.map((message) {
-      log(
-        'Handling a message opened app ${message.messageId}',
-        name: 'PushNotificationRepository',
+      yield FCMEvent(
+        event: FCMMessageEvent.initialMessage,
+        message: _processMessage(initialMessage),
       );
-
-      print('onMessageOpenedApp');
-      return _processMessage(message);
-    });
+    }
   }
 
   // Display local notification
@@ -132,18 +133,10 @@ class PushNotificationRepository {
     final android = message.notification?.android;
     final apple = message.notification?.apple;
 
-    // Get the channel id for the notification
-    print('Android channel id: ${android?.channelId}');
-
     final channel =
         pushChannels[android?.channelId] ?? pushChannels['notifications'];
 
-    print('notification: $notification');
-    print('android: $android');
-    print('android: $apple');
-    print('data: ${message.data}');
-
-    if (notification != null && android != null) {
+    if (Platform.isAndroid && notification != null && android != null) {
       print('android local notification');
       flutterLocalNotificationsPlugin.show(
         DateTime.now().microsecond,
@@ -155,7 +148,6 @@ class PushNotificationRepository {
             channelDescription: channel.description,
             importance: Importance.max,
             priority: Priority.high,
-
             enableLights: true,
             colorized: true,
             // sound: RawResourceAndroidNotificationSound(
@@ -165,7 +157,11 @@ class PushNotificationRepository {
         ),
         payload: jsonEncode(message.data),
       );
-    } else if (notification != null && apple != null) {
+    } else if (Platform.isIOS &&
+        notification != null &&
+        apple != null &&
+        !messagesLocalHistory
+            .any((element) => element.messageId == message.messageId)) {
       print('apple local notification');
       try {
         flutterLocalNotificationsPlugin.show(
@@ -189,33 +185,38 @@ class PushNotificationRepository {
     }
   }
 
-  /// On tap notification
-  Future<void> onSelectLocalNotification(NotificationResponse? payload) async {
-    log('onDidReceiveNotificationResponse', name: 'PushNotificationRepository');
-    print(payload);
-
-    final data = jsonDecode(payload!.payload!);
-    // final type = data['notification_type'];
-    // final alertId = data['alertId'] as String;
-
-    // if (type == 'alert' && _ctx != null) {
-    //   await _navigateToAlertScreen(alertId);
-    // }
-  }
-
-  PushMessage _processMessage(RemoteMessage message) {
+  FCMMessageReceived _processMessage(
+    RemoteMessage message,
+  ) {
     print('processMessage');
 
     final data = Map<String, String>.from(message.data);
 
-    return PushMessage(
-      page: data['page']!,
-      id: data['chatId'] != null
-          ? data['chatId']!
-          : data['orderId'] != null
-              ? data['orderId']!
-              : '',
+    return FCMMessageReceived(
+      metadata: data,
+      messageId: message.messageId,
     );
+  }
+
+  FCMMessageReceived _processPayload(NotificationResponse response) {
+    print('processPayload');
+
+    return FCMMessageReceived(
+      metadata: convertPayload(response.payload!),
+      messageId: response.actionId ?? '',
+    );
+  }
+
+  Map<String, dynamic> convertPayload(String payload) {
+    final String _payload = payload.substring(1, payload.length - 1);
+    List<String> _split = [];
+    _payload.split(",")..forEach((String s) => _split.addAll(s.split(":")));
+    Map<String, dynamic> _mapped = {};
+    for (int i = 0; i < _split.length + 1; i++) {
+      if (i % 2 == 1)
+        _mapped.addAll({_split[i - 1].trim().toString(): _split[i].trim()});
+    }
+    return _mapped;
   }
 
   Future<void> subscribeToTopic(String topic) async {

@@ -10,6 +10,9 @@ environment:
 
 dependencies:
 
+  bloc: null
+  flutter_bloc: ^8.1.2
+  
   firebase_core: ^2.7.1
   
   mayo_flutter_push_notifications:

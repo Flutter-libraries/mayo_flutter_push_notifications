@@ -9,12 +9,24 @@ environment:
 
 dependencies:
 
+  bloc: null
+  flutter_bloc: ^8.1.2
+  freezed_annotation: ^2.0.3
+  json_annotation: ^4.4.0
   firebase_messaging: ^14.2.6
   flutter_local_notifications: ^16.2.0
   flutter:
     sdk: flutter
 
 dev_dependencies:
+  bloc_test: ^9.1.1
+  build_runner: ^2.1.5
+  freezed: ^2.2.0
+  json_serializable: ^6.1.2
   flutter_test:
     sdk: flutter
   very_good_analysis: ^5.1.0
+
+scripts:
+  build: "flutter pub run build_runner build --delete-conflicting-outputs"
+  build-watch: "flutter pub run build_runner watch"
