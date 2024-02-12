@@ -41,3 +41,6 @@ example/firebase_options.dart
 .flutter-plugins-dependencies
 
 .metadata
+
+example/scripts/google-services*.json
+example/scripts/node_modules
