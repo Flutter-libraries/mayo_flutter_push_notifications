@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 // 2. Copy the token for your device that is printed in the console on app start (`flutter run`) for the FirebaseMessaging example
-const token = 'fkBks8FV6kNsn17TOBqcFC:APA91bHtp1oK2yieL4MuAgeT5PlSpUuqmGovNAoyvh09AhjkRnn6KHawvulcsIeX1KJC5Mi1YPZyYjI1wQkaxZcL4vvawZjC4vkmxORuxwsmA5M6eD2usvHRgOKbtnopsReDPbM1L5TS';
+const token = 'eLlye_A4XUzQp1Ns4c5xMj:APA91bEioegQyS7OoprPtTuiT7gR8jogDuK3Z88Zd--U6xVl751ficRzp8q3OtAYRlQrmvK6aQsWZXAmARQR0i4kE3-2QurDIZgvtZ5y8DrUdEENGwWFBSX_JFFupIKFTLs2jCJjddne';
 
 
 // 3. From your terminal, root to example/scripts directory & run `npm install`.

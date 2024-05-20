@@ -59,7 +59,11 @@ class FCMRepository {
       'High Importance Notifications', // title
       description:
           'This channel is used for important notifications.', // description
-      importance: Importance.high,
+      importance: Importance.max,
+      enableLights: true,
+      enableVibration: true,
+      playSound: true,
+      showBadge: true,
     );
 
     flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -77,15 +81,19 @@ class FCMRepository {
     /// heads up notifications.
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
-            // alert: true,
-            // badge: true,
-            // sound: true,
-            );
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     await FirebaseMessaging.instance.requestPermission(
-      announcement: true,
-      carPlay: true,
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
       criticalAlert: true,
+      provisional: false,
+      sound: true,
     );
     isFlutterLocalNotificationsInitialized = true;
   }
