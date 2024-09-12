@@ -13,14 +13,14 @@ dependencies:
   bloc: null
   flutter_bloc: ^8.1.2
   
-  firebase_core: ^2.7.1
+  firebase_core: ^3.1.0
 
   http: 
   
   mayo_flutter_push_notifications:
     path: ../
     
-  rename: ^2.1.1
+  rename: ^3.0.2
 
   flutter:
     sdk: flutter
